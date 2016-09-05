@@ -21,6 +21,7 @@
   "dependencies": {
     "feature-filter": "^2.2.0",
     "geojson-vt": "^2.4.0",
+    "lodash.debounce": "^4.0.8",
     "osm-p2p-geojson": "^1.1.0",
     "subleveldown": "^2.1.0",
     "vt-pbf": "^2.1.2",

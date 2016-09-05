@@ -8,6 +8,7 @@ var xtend = require('xtend')
 var ff = require('feature-filter')
 var vtpbf = require('vt-pbf')
 var NotFoundError = require('level-errors').NotFoundError
+var debounce = require('lodash.debounce')
 
 module.exports = Ix
 inherits(Ix, EventEmitter)
@@ -29,15 +30,7 @@ function Ix (osm, opts) {
   self.db = sub(osm.db, 'vect', { valueEncoding: 'json' })
   self._pending = false
 
-  osm.log.on('add', function () {
-    if (self._pending) return
-    self._pending = true
-    // Hyperlog batch updates will emit multiple 'add' events in the same tick
-    setImmediate(function () {
-      self._pending = false
-      self.regenerateIndex()
-    })
-  })
+  osm.log.on('add', debounce(self.regenerateIndex, 200, {maxWait: 2000}).bind(self))
 
   self.regenerateIndex()
 }
