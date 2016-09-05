@@ -7,6 +7,7 @@ var vtpbf = require('vt-pbf')
 var xtend = require('xtend')
 var ff = require('feature-filter')
 var vtpbf = require('vt-pbf')
+var NotFoundError = require('level-errors').NotFoundError
 
 module.exports = Ix
 inherits(Ix, EventEmitter)
@@ -27,7 +28,6 @@ function Ix (osm, opts) {
   self.osm = osm
   self.db = sub(osm.db, 'vect', { valueEncoding: 'json' })
   self._pending = false
-  self.ready = false
 
   osm.log.on('add', function () {
     if (self._pending) return
@@ -45,6 +45,7 @@ function Ix (osm, opts) {
 Ix.prototype.regenerateIndex = function regerateIndex () {
   getGeoJSON(osm, self.opts.bounds, function (err, geojson) {
     if (err) return self.emit('error', err)
+    self._lastUpdate = Date.now()
     var tileIndex = geojsonvt(geojson)
     var pending = tileIndex.tileCoords.length
     tileIndex.tileCoords.forEach(function (coords) {
@@ -64,6 +65,9 @@ Ix.prototype.getTile = function (z, x, y, cb) {
   var key = z + '/' + x + '/' + y
   self.get(key, function (err, tile) {
     if (err) return cb(err)
+    if (tile.update !== self._lastUpdate) {
+      return cb(new NotFoundError('Tile not found in database [' + key + ']'))
+    }
     var layeredTile = {}
     Object.keys(opts.layers).forEach(function (name) {
       var filter = ff(opts.layers[name])
@@ -84,7 +88,7 @@ Ix.prototype.getTilePbf = function (z, x, y, cb) {
 
 Ix.prototype.ready = function (fn) {
   var self = this
-  if (self.ready) {
+  if (self._lastUpdate) {
     process.nextTick(fn)
   } else {
     self.once('update', function () { self.ready(fn) })
