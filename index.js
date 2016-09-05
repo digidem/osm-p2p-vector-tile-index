@@ -14,7 +14,7 @@ module.exports = Ix
 inherits(Ix, EventEmitter)
 
 var DEFAULTS = {
-  bounds: [[-Infinity, Infinity], [-Infinity, Infinity]],
+  bbox: [-Infinity, -Infinity, Infinity, Infinity],
   layers: {
     geojsonLayer: ['all']
   }
@@ -36,7 +36,7 @@ function Ix (osm, opts) {
 }
 
 Ix.prototype.regenerateIndex = function regerateIndex () {
-  getGeoJSON(osm, self.opts.bounds, function (err, geojson) {
+  getGeoJSON(osm, self.opts, function (err, geojson) {
     if (err) return self.emit('error', err)
     self._lastUpdate = Date.now()
     var tileIndex = geojsonvt(geojson)
