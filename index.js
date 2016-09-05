@@ -60,7 +60,7 @@ Ix.prototype.regenerateIndex = function regerateIndex () {
   })
 }
 
-Ix.prototype.getTile = function (z, x, y, cb) {
+Ix.prototype.getTileJson = function (z, x, y, cb) {
   var self = this
   var key = z + '/' + x + '/' + y
   self.get(key, function (err, tile) {
