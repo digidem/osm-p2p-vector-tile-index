@@ -50,7 +50,11 @@ Ix.prototype.regenerateIndex = function regerateIndex () {
     var pending = tileIndex.tileCoords.length
     tileIndex.tileCoords.forEach(function (coords) {
       var key = [coords.z, coords.x, coords.y]
-      self.db.put(key.join('/'), tileIndex.getTile.apply(null, key), onWrite)
+      var value = {
+        update: self._lastUpdate,
+        features: tileIndex.getTile.apply(null, key).features
+      }
+      self.db.put(key.join('/'), value, onWrite)
     })
     function onWrite (err) {
       if (err) self.emit('error', err)
@@ -71,9 +75,9 @@ Ix.prototype.getTileJson = function (z, x, y, cb) {
     var layeredTile = {}
     Object.keys(opts.layers).forEach(function (name) {
       var filter = ff(opts.layers[name])
-      layeredTile[name] = xtend(tile, {
+      layeredTile[name] = {
         features: tile.features.filter(filter)
-      })
+      }
     })
     cb(null, layeredTile)
   })
