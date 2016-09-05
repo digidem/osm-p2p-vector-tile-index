@@ -74,7 +74,7 @@ Ix.prototype.getTileJson = function (z, x, y, cb) {
     }
     var layeredTile = {}
     Object.keys(opts.layers).forEach(function (name) {
-      var filter = ff(opts.layers[name])
+      var filter = typeof opts.layers[name] === 'function' ? opts.layers[name] : ff(opts.layers[name])
       layeredTile[name] = {
         features: tile.features.filter(filter)
       }
