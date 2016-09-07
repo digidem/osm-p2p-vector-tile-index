@@ -6,9 +6,10 @@ var geojsonvt = require('geojson-vt')
 var vtpbf = require('vt-pbf')
 var xtend = require('xtend')
 var ff = require('feature-filter')
-var vtpbf = require('vt-pbf')
 var NotFoundError = require('level-errors').NotFoundError
 var debounce = require('lodash.debounce')
+
+var tileExtent = require('./lib/tile_extent')
 
 module.exports = Ix
 inherits(Ix, EventEmitter)
@@ -36,12 +37,15 @@ function Ix (osm, opts) {
 }
 
 Ix.prototype.regenerateIndex = function regerateIndex () {
-  getGeoJSON(osm, self.opts, function (err, geojson) {
+  var self = this
+  self._tileExtent = tileExtent()
+  getGeoJSON(self.osm, self.opts, function (err, geojson) {
     if (err) return self.emit('error', err)
     self._lastUpdate = Date.now()
     var tileIndex = geojsonvt(geojson)
     var pending = tileIndex.tileCoords.length
     tileIndex.tileCoords.forEach(function (coords) {
+      self._tileExtent.include(coords)
       var key = [coords.z, coords.x, coords.y]
       var value = {
         update: self._lastUpdate,
@@ -66,8 +70,9 @@ Ix.prototype.getTileJson = function (z, x, y, cb) {
       return cb(new NotFoundError('Tile not found in database [' + key + ']'))
     }
     var layeredTile = {}
-    Object.keys(opts.layers).forEach(function (name) {
-      var filter = typeof opts.layers[name] === 'function' ? opts.layers[name] : ff(opts.layers[name])
+    var layerFilters = self.opts.layers
+    Object.keys(layerFilters).forEach(function (name) {
+      var filter = typeof layerFilters[name] === 'function' ? layerFilters[name] : ff(layerFilters[name])
       layeredTile[name] = {
         features: tile.features.filter(filter)
       }
@@ -81,6 +86,21 @@ Ix.prototype.getTilePbf = function (z, x, y, cb) {
     if (err) return cb(err)
     cb(null, vtpbf.fromGeojsonVt(jsonTile))
   })
+}
+
+Ix.prototype.bounds = function () {
+  if (!this._tileExtent) return null
+  return this._tileExtent.bbox()
+}
+
+Ix.prototype.minZoom = function () {
+  if (!this._tileExtent) return null
+  return this._tileExtent.zoom().min
+}
+
+Ix.prototype.maxZoom = function () {
+  if (!this._tileExtent) return null
+  return this._tileExtent.zoom().max
 }
 
 Ix.prototype.ready = function (fn) {
