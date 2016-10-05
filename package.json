@@ -19,6 +19,7 @@
     "standard": "^8.0.0"
   },
   "dependencies": {
+    "@turf/meta": "^3.5.2",
     "feature-filter": "^2.2.0",
     "geojson-vt": "^2.4.0",
     "lodash.debounce": "^4.0.8",

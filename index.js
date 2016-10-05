@@ -8,6 +8,7 @@ var xtend = require('xtend')
 var ff = require('feature-filter')
 var NotFoundError = require('level-errors').NotFoundError
 var debounce = require('lodash.debounce')
+var featureEach = require('@turf/meta').featureEach
 
 var tileExtent = require('./lib/tile_extent')
 
@@ -41,6 +42,14 @@ Ix.prototype.regenerateIndex = function regerateIndex () {
   self._tileExtent = tileExtent()
   getGeoJSON(self.osm, self.opts, function (err, geojson) {
     if (err) return self.emit('error', err)
+    if (typeof self.opts.map === 'function') {
+      var mappedFeatures = []
+      featureEach(geojson, function (f) {
+        var mapped = self.opts.map(f)
+        if (mapped) mappedFeatures.push(f)
+      })
+      geojson.features = mappedFeatures
+    }
     self._lastUpdate = Date.now()
     var tileIndex = geojsonvt(geojson)
     var pending = tileIndex.tileCoords.length
