@@ -15,8 +15,9 @@ Maintain an index of Mapbox vector tiles on an osm-p2p-db. Currently regenerates
 - [Usage](#usage)
 - [API](#api)
   - [var vti = VectorTileIndex\(osm, options\)](#var-vti--vectortileindexosm-options)
-  - [vti.getTileJson\(z, x, y, cb\)](#vtigettilejsonz-x-y-cb)
-  - [vti.getTilePbf\(z, x, y, cb\)](#vtigettilepbfz-x-y-cb)
+  - [vti.getJsonTile\(z, x, y, cb\)](#vtigetjsontilez-x-y-cb)
+  - [vti.getPbfTile\(z, x, y, cb\)](#vtigetpbftilez-x-y-cb)
+  - [vti.meta\(\)](#vtimeta)
   - [vti.ready\(fn\)](#vtireadyfn)
   - [vti.on\('update', fn\)](#vtionupdate-fn)
 - [Contribute](#contribute)
@@ -69,13 +70,17 @@ Create a new vector tile index with:
 - `options.layers` - object defining layers in tiles. Each property defines a layer, with either a filter expression as defined in the [Mapbox GL JS Spec](https://www.mapbox.com/mapbox-gl-style-spec/#types-filter) or a function that will return true for features to appear in that layer. Defaults to `{geojsonLayer: ['all']}` i.e. resulting vector tiles will have a single layer with all the data named `geojsonLayer`.
 - Additional options are passed through to [`osm-p2p-geojson`](https://github.com/digidem/osm-p2p-geojson), e.g. [`options.metadata`](https://github.com/digidem/osm-p2p-geojson#api).
 
-### vti.getTileJson(z, x, y, cb)
+### vti.getJsonTile(z, x, y, cb)
 
 Return a tile for coordinates `z, x, y` in the JSON equivalent of the [vector tile specification](https://github.com/mapbox/vector-tile-spec/)
 
-### vti.getTilePbf(z, x, y, cb)
+### vti.getPbfTile(z, x, y, cb)
 
 Return a tile for coordinates `z, x, y` encoded as a [Google Protocol Buffer](https://developers.google.com/protocol-buffers/) as defined in the [vector tile specification](https://github.com/mapbox/vector-tile-spec/).
+
+### vti.meta()
+
+Return metadata about the tiles (`minzoom`, `maxzoom`, `vector_layers`, `bounds`)
 
 ### vti.ready(fn)
 

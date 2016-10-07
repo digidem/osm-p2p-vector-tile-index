@@ -1,45 +1,64 @@
 var inherits = require('inherits')
 var EventEmitter = require('events').EventEmitter
-var sub = require('subleveldown')
 var getGeoJSON = require('osm-p2p-geojson')
 var geojsonvt = require('geojson-vt')
 var vtpbf = require('vt-pbf')
 var xtend = require('xtend')
-var ff = require('feature-filter')
-var NotFoundError = require('level-errors').NotFoundError
+var ff = require('feature-filter-geojson')
 var debounce = require('lodash.debounce')
 var featureEach = require('@turf/meta').featureEach
+var propReduce = require('@turf/meta').propReduce
+var bbox = require('@turf/bbox')
 
-var tileExtent = require('./lib/tile_extent')
-
-module.exports = Ix
-inherits(Ix, EventEmitter)
+module.exports = VectorTileIndex
+inherits(VectorTileIndex, EventEmitter)
 
 var DEFAULTS = {
   bbox: [-Infinity, -Infinity, Infinity, Infinity],
   layers: {
     geojsonLayer: ['all']
-  }
+  },
+  map: null,
+  minZoom: 0,
+  maxZoom: 14
 }
 
-function Ix (osm, opts) {
-  if (!(this instanceof Ix)) return new Ix(osm)
+function VectorTileIndex (osm, opts) {
+  if (!(this instanceof VectorTileIndex)) return new VectorTileIndex(osm)
   var self = this
   EventEmitter.call(self)
 
   self.opts = xtend(DEFAULTS, opts)
+  self._meta = {
+    minzoom: self.opts.minZoom,
+    maxzoom: self.opts.maxZoom
+  }
   self.osm = osm
-  self.db = sub(osm.db, 'vect', { valueEncoding: 'json' })
-  self._pending = false
 
-  osm.log.on('add', debounce(self.regenerateIndex, 200, {maxWait: 2000}).bind(self))
+  var layers = self.opts.layers || DEFAULTS.layers
+  self.layerFilters = {}
+  var otherFilter = ['none']
+  Object.keys(layers).forEach(function (name) {
+    var filter = layers[name]
+    if (typeof filter !== 'function') {
+      filter = ff(layers[name])
+      otherFilter.push(layers[name])
+    }
+    self.layerFilters[name] = filter
+  })
+  // TODO: Can overwrite layer called 'other' - should avoid that
+  self.layerFilters.other = ff(otherFilter)
 
+  self._tileIndexes = {}
+
+  // TODO: debounce this
+  osm.log.on('add', self.regenerateIndex.bind(self))
   self.regenerateIndex()
 }
 
-Ix.prototype.regenerateIndex = function regerateIndex () {
+VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
   var self = this
-  self._tileExtent = tileExtent()
+  self._updating = true
   getGeoJSON(self.osm, self.opts, function (err, geojson) {
     if (err) return self.emit('error', err)
     if (typeof self.opts.map === 'function') {
@@ -50,73 +69,75 @@ Ix.prototype.regenerateIndex = function regerateIndex () {
       })
       geojson.features = mappedFeatures
     }
+
+    self._tileIndexes = {}
+    self._meta.bounds = bbox(geojson)
+    self._meta.vector_layers = []
+    for (var key in self.layerFilters) {
+      var layerGeojson = {
+        type: 'FeatureCollection',
+        features: geojson.features.filter(self.layerFilters[key])
+      }
+      self._meta.vector_layers.push({
+        id: key,
+        fields: propTypes(layerGeojson)
+      })
+      self._tileIndexes[key] = geojsonvt(layerGeojson)
+    }
     self._lastUpdate = Date.now()
-    var tileIndex = geojsonvt(geojson)
-    var pending = tileIndex.tileCoords.length
-    tileIndex.tileCoords.forEach(function (coords) {
-      self._tileExtent.include(coords)
-      var key = [coords.z, coords.x, coords.y]
-      var value = {
-        update: self._lastUpdate,
-        features: tileIndex.getTile.apply(null, key).features
-      }
-      self.db.put(key.join('/'), value, onWrite)
-    })
-    function onWrite (err) {
-      if (err) self.emit('error', err)
-      if (--pending > 0) return
-      self.emit('update')
-    }
+    self._updating = false
+    self.emit('update')
   })
 }
 
-Ix.prototype.getTileJson = function (z, x, y, cb) {
+VectorTileIndex.prototype.getJsonTile = function (z, x, y, cb) {
   var self = this
-  var key = z + '/' + x + '/' + y
-  self.get(key, function (err, tile) {
-    if (err) return cb(err)
-    if (tile.update !== self._lastUpdate) {
-      return cb(new NotFoundError('Tile not found in database [' + key + ']'))
-    }
-    var layeredTile = {}
-    var layerFilters = self.opts.layers
-    Object.keys(layerFilters).forEach(function (name) {
-      var filter = typeof layerFilters[name] === 'function' ? layerFilters[name] : ff(layerFilters[name])
-      layeredTile[name] = {
-        features: tile.features.filter(filter)
-      }
-    })
-    cb(null, layeredTile)
+
+  var layeredTile = {}
+  Object.keys(self.layerFilters).forEach(function (key) {
+    var tile = self._tileIndexes[key].getTile(z, x, y)
+    var features = tile ? tile.features : null
+    if (!features) return
+    layeredTile[key] = { features: features }
   })
+  if (Object.keys(layeredTile).length) {
+    cb(null, layeredTile)
+  } else {
+    cb(null, null)
+  }
 }
 
-Ix.prototype.getTilePbf = function (z, x, y, cb) {
-  this.getTile(z, x, y, function (err, jsonTile) {
+VectorTileIndex.prototype.getPbfTile = function (z, x, y, cb) {
+  this.getJsonTile(z, x, y, function (err, jsonTile) {
     if (err) return cb(err)
+    if (!jsonTile) return cb(null, null)
     cb(null, vtpbf.fromGeojsonVt(jsonTile))
   })
 }
 
-Ix.prototype.bounds = function () {
-  if (!this._tileExtent) return null
-  return this._tileExtent.bbox()
+VectorTileIndex.prototype.meta = function () {
+  return this._meta
 }
 
-Ix.prototype.minZoom = function () {
-  if (!this._tileExtent) return null
-  return this._tileExtent.zoom().min
-}
-
-Ix.prototype.maxZoom = function () {
-  if (!this._tileExtent) return null
-  return this._tileExtent.zoom().max
-}
-
-Ix.prototype.ready = function (fn) {
+VectorTileIndex.prototype.ready = function (fn) {
   var self = this
-  if (self._lastUpdate) {
+  if (!self._updating) {
     process.nextTick(fn)
   } else {
     self.once('update', function () { self.ready(fn) })
   }
+}
+
+function propTypes (layer) {
+  return propReduce(layer, function (prev, props) {
+    for (var prop in props) {
+      if (prev[prop]) continue
+      prev[prop] = capitalize(typeof props[prop])
+    }
+    return prev
+  }, {})
+}
+
+function capitalize (s) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
