@@ -20,10 +20,13 @@
   },
   "dependencies": {
     "@turf/bbox": "^3.5.2",
+    "@turf/helpers": "^3.5.2",
     "@turf/meta": "^3.5.2",
+    "chaikin-smooth": "^1.0.4",
     "feature-filter-geojson": "^1.0.0",
     "geojson-vt": "^2.4.0",
     "lodash.debounce": "^4.0.8",
+    "mapshaper": "^0.3.33",
     "osm-p2p-geojson": "^2.0.0",
     "tilebelt": "^1.0.1",
     "vt-pbf": "^2.1.2",

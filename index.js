@@ -9,7 +9,10 @@ var debounce = require('lodash.debounce')
 var featureEach = require('@turf/meta').featureEach
 var propReduce = require('@turf/meta').propReduce
 var bbox = require('@turf/bbox')
-
+var mapshaper = require('mapshaper')
+var smooth = require('chaikin-smooth')
+var fc = require('@turf/helpers').featureCollection
+var fs = require('fs')
 module.exports = VectorTileIndex
 inherits(VectorTileIndex, EventEmitter)
 
@@ -59,13 +62,13 @@ function VectorTileIndex (osm, opts) {
 VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
   var self = this
   self._updating = true
-  getGeoJSON(self.osm, self.opts, function (err, geojson) {
+  self.getGeoJSON(function (err, geojson) {
     if (err) return self.emit('error', err)
     if (typeof self.opts.map === 'function') {
       var mappedFeatures = []
       featureEach(geojson, function (f) {
         var mapped = self.opts.map(f)
-        if (mapped) mappedFeatures.push(f)
+        if (mapped && f.geometry) mappedFeatures.push(f)
       })
       geojson.features = mappedFeatures
     }
@@ -87,6 +90,27 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
     self._lastUpdate = Date.now()
     self._updating = false
     self.emit('update')
+  })
+}
+
+VectorTileIndex.prototype.getGeoJSON = function (cb) {
+  var self = this
+  getGeoJSON(self.osm, self.opts, function (err, geojson) {
+    if (err) return cb(err)
+    if (!self.opts.smooth) return cb(null, geojson)
+    var smoothed = fc([])
+    var lines = []
+    featureEach(geojson, function (f) {
+      var type = f.geometry && f.geometry.type
+      if (type === 'LineString') lines.push(f)
+      else smoothed.features.push(f)
+    })
+    smoothFeatures(lines, done)
+    function done (err, features) {
+      if (err) return cb(err)
+      smoothed.features = smoothed.features.concat(features)
+      cb(null, smoothed)
+    }
   })
 }
 
@@ -141,3 +165,37 @@ function propTypes (layer) {
 function capitalize (s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+
+function smoothFeatures (features, cb) {
+  simplify(fc(features), '-simplify visvalingam no-repair keep-shapes interval=10', (err, simplifiedLines) => {
+    if (err) return cb(err)
+    var smoothedLines = chaikinSmooth(simplifiedLines)
+    simplify(smoothedLines, '-simplify visvalingam no-repair keep-shapes interval=1', (err, smoothedSimplifiedLines) => {
+      if (err) return cb(err)
+      cb(null, smoothedSimplifiedLines.features)
+    })
+  })
+}
+
+function simplify (geojson, cmd, cb) {
+  mapshaper.applyCommands(cmd, geojson, function (err, data) {
+    if (err) return cb(err)
+    return cb(null, JSON.parse(data))
+  })
+}
+
+function chaikinSmooth (geojson) {
+  featureEach(geojson, f => {
+    if (!f.geometry) return
+    var coords = f.geometry.coordinates
+    if (f.geometry.type === 'LineString') {
+      f.geometry.coordinates = smooth(smooth(smooth(coords)))
+    } else if (f.geometry.type === 'Polygon') {
+      f.geometry.coordinates = coords.map(lineString => {
+        return smooth(smooth(smooth(lineString)))
+      })
+    }
+  })
+  return geojson
+}
+
