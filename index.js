@@ -5,14 +5,13 @@ var geojsonvt = require('geojson-vt')
 var vtpbf = require('vt-pbf')
 var xtend = require('xtend')
 var ff = require('feature-filter-geojson')
-var debounce = require('lodash.debounce')
 var featureEach = require('@turf/meta').featureEach
 var propReduce = require('@turf/meta').propReduce
 var bbox = require('@turf/bbox')
 var mapshaper = require('mapshaper')
 var smooth = require('chaikin-smooth')
 var fc = require('@turf/helpers').featureCollection
-var fs = require('fs')
+
 module.exports = VectorTileIndex
 inherits(VectorTileIndex, EventEmitter)
 
