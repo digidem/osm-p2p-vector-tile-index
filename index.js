@@ -62,6 +62,10 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
   var self = this
   self._updating = true
   self.getGeoJSON(function (err, geojson) {
+    geojson = geojson || {
+      type: 'FeatureCollection',
+      features: []
+    }
     if (err) return self.emit('error', err)
     if (typeof self.opts.map === 'function') {
       var mappedFeatures = []
@@ -166,6 +170,7 @@ function capitalize (s) {
 }
 
 function smoothFeatures (features, cb) {
+  if (!features.length) return cb(null, features)
   simplify(fc(features), '-simplify visvalingam no-repair keep-shapes interval=10', (err, simplifiedLines) => {
     if (err) return cb(err)
     var smoothedLines = chaikinSmooth(simplifiedLines)
