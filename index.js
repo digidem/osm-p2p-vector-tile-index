@@ -138,7 +138,13 @@ VectorTileIndex.prototype.getPbfTile = function (z, x, y, cb) {
   this.getJsonTile(z, x, y, function (err, jsonTile) {
     if (err) return cb(err)
     if (!jsonTile) return cb(null, null)
-    cb(null, vtpbf.fromGeojsonVt(jsonTile))
+    var l = {}
+    for (var k in jsonTile) {
+      l[k] = new vtpbf.GeoJSONWrapper(jsonTile[k].features)
+      l[k].name = k
+      l[k].version = 2
+    }
+    cb(null, vtpbf.fromVectorTileJs({layers: l}))
   })
 }
 
