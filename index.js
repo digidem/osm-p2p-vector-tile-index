@@ -11,6 +11,7 @@ var bbox = require('@turf/bbox')
 var mapshaper = require('mapshaper')
 var smooth = require('chaikin-smooth')
 var fc = require('@turf/helpers').featureCollection
+var debounce = require('lodash/debounce')
 
 module.exports = VectorTileIndex
 inherits(VectorTileIndex, EventEmitter)
@@ -53,13 +54,22 @@ function VectorTileIndex (osm, opts) {
 
   self._tileIndexes = {}
 
-  // TODO: debounce this
-  osm.log.on('add', self.regenerateIndex.bind(self))
+  osm.log.on('add', debounce(self.regenerateIndex.bind(self), 500))
+  self.on('update', function () {
+    if (self._pending) {
+      self._pending = false
+      self.regenerateIndex()
+    }
+  })
   self.regenerateIndex()
 }
 
 VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
   var self = this
+  if (self._updating) {
+    self._pending = true
+    return
+  }
   self._updating = true
   self.getGeoJSON(function (err, geojson) {
     geojson = geojson || {
