@@ -8,9 +8,6 @@ var ff = require('feature-filter-geojson')
 var featureEach = require('@turf/meta').featureEach
 var propReduce = require('@turf/meta').propReduce
 var bbox = require('@turf/bbox')
-var mapshaper = require('mapshaper')
-var smooth = require('chaikin-smooth')
-var fc = require('@turf/helpers').featureCollection
 var debounce = require('lodash/debounce')
 
 module.exports = VectorTileIndex
@@ -34,7 +31,8 @@ function VectorTileIndex (osm, opts) {
   self.opts = xtend(DEFAULTS, opts)
   self._meta = {
     minzoom: self.opts.minZoom,
-    maxzoom: self.opts.maxZoom
+    maxzoom: self.opts.maxZoom,
+    format: 'pbf'
   }
   self.osm = osm
 
@@ -50,7 +48,7 @@ function VectorTileIndex (osm, opts) {
     self.layerFilters[name] = filter
   })
   // TODO: Can overwrite layer called 'other' - should avoid that
-  self.layerFilters.other = ff(otherFilter)
+  if (otherFilter.length > 1) self.otherFilter = ff(otherFilter)
 
   self._tileIndexes = {}
 
@@ -71,19 +69,17 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
     return
   }
   self._updating = true
-  self.getGeoJSON(function (err, geojson) {
+  getGeoJSON(self.osm, self.opts, function (err, geojson) {
     geojson = geojson || {
       type: 'FeatureCollection',
       features: []
     }
     if (err) return self.emit('error', err)
-    if (typeof self.opts.map === 'function') {
-      var mappedFeatures = []
-      featureEach(geojson, function (f) {
-        var mapped = self.opts.map(f)
-        if (mapped && f.geometry) mappedFeatures.push(f)
-      })
-      geojson.features = mappedFeatures
+
+    if (geojson.features.filter(self.otherFilter).length) {
+      self.layerFilters.other = self.otherFilter
+    } else {
+      delete self.layerFilters.other
     }
 
     self._tileIndexes = {}
@@ -96,6 +92,7 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
       }
       self._meta.vector_layers.push({
         id: key,
+        description: '',
         fields: propTypes(layerGeojson)
       })
       self._tileIndexes[key] = geojsonvt(layerGeojson)
@@ -103,27 +100,6 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
     self._lastUpdate = Date.now()
     self._updating = false
     self.emit('update')
-  })
-}
-
-VectorTileIndex.prototype.getGeoJSON = function (cb) {
-  var self = this
-  getGeoJSON(self.osm, self.opts, function (err, geojson) {
-    if (err) return cb(err)
-    if (!self.opts.smooth) return cb(null, geojson)
-    var smoothed = fc([])
-    var lines = []
-    featureEach(geojson, function (f) {
-      var type = f.geometry && f.geometry.type
-      if (type === 'LineString') lines.push(f)
-      else smoothed.features.push(f)
-    })
-    smoothFeatures(lines, done)
-    function done (err, features) {
-      if (err) return cb(err)
-      smoothed.features = smoothed.features.concat(features)
-      cb(null, smoothed)
-    }
   })
 }
 
@@ -150,10 +126,12 @@ VectorTileIndex.prototype.getPbfTile = function (z, x, y, cb) {
     if (!jsonTile) return cb(null, null)
     var l = {}
     for (var k in jsonTile) {
+      console.log(jsonTile[k].features)
       l[k] = new vtpbf.GeoJSONWrapper(jsonTile[k].features)
       l[k].name = k
-      l[k].version = 2
+      // l[k].version = 2
     }
+    console.log('l:', l)
     cb(null, vtpbf.fromVectorTileJs({layers: l}))
   })
 }
@@ -184,38 +162,3 @@ function propTypes (layer) {
 function capitalize (s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
-
-function smoothFeatures (features, cb) {
-  if (!features.length) return cb(null, features)
-  simplify(fc(features), '-simplify visvalingam no-repair keep-shapes interval=10', (err, simplifiedLines) => {
-    if (err) return cb(err)
-    var smoothedLines = chaikinSmooth(simplifiedLines)
-    simplify(smoothedLines, '-simplify visvalingam no-repair keep-shapes interval=1', (err, smoothedSimplifiedLines) => {
-      if (err) return cb(err)
-      cb(null, smoothedSimplifiedLines.features)
-    })
-  })
-}
-
-function simplify (geojson, cmd, cb) {
-  mapshaper.applyCommands(cmd, geojson, function (err, data) {
-    if (err) return cb(err)
-    return cb(null, JSON.parse(data))
-  })
-}
-
-function chaikinSmooth (geojson) {
-  featureEach(geojson, f => {
-    if (!f.geometry) return
-    var coords = f.geometry.coordinates
-    if (f.geometry.type === 'LineString') {
-      f.geometry.coordinates = smooth(smooth(smooth(coords)))
-    } else if (f.geometry.type === 'Polygon') {
-      f.geometry.coordinates = coords.map(lineString => {
-        return smooth(smooth(smooth(lineString)))
-      })
-    }
-  })
-  return geojson
-}
-
