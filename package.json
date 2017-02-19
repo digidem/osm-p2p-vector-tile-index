@@ -23,6 +23,7 @@
     "@turf/meta": "^3.5.2",
     "feature-filter-geojson": "^1.0.0",
     "geojson-vt": "^2.4.0",
+    "lodash": "^4.17.4",
     "osm-p2p-geojson": "^2.0.0",
     "tilebelt": "^1.0.1",
     "vt-pbf": "^2.1.2",
