@@ -4,7 +4,8 @@
   "description": "Vector tile index for osm-p2p-db",
   "main": "index.js",
   "scripts": {
-    "test": "standard"
+    "test": "tape test/**/*",
+    "lint": "standard"
   },
   "keywords": [
     "osm-p2p",
@@ -16,7 +17,8 @@
   "author": "Gregor MacLennan",
   "license": "MIT",
   "devDependencies": {
-    "standard": "^8.0.0"
+    "standard": "^8.0.0",
+    "tape": "^4.7.0"
   },
   "dependencies": {
     "@turf/bbox": "^3.5.2",
