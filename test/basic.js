@@ -22,7 +22,6 @@ test('single node', function (t) {
   })
 
   function check () {
-
     vti.ready(function () {
       vti.getJsonTile(1, 1, 1, function (err, tile) {
         t.error(err)
@@ -30,6 +29,37 @@ test('single node', function (t) {
         t.equal(tile.geojsonLayer.features[0].type, 1)
         t.equal(tile.geojsonLayer.features[0].tags.id, nodeId)
         t.equal(tile.geojsonLayer.features[0].tags.foo, 'bar')
+        t.end()
+      })
+    })
+  }
+})
+
+test('way with only one point is filtered', function (t) {
+  var osm = osmdb()
+  var vti = VectorTileIndex(osm)
+
+  osm.put('1', {
+    type: 'node',
+    lon: 1,
+    lat: 1
+  })
+  osm.create({
+    type: 'way',
+    refs: ['1'],
+    tags: {
+      bar: 'baz'
+    }
+  }, function (err, id) {
+    t.error(err)
+    setTimeout(check, 500)
+  })
+
+  function check () {
+    vti.ready(function () {
+      vti.getJsonTile(1, 1, 1, function (err, tile) {
+        t.error(err)
+        t.equal(tile, null)
         t.end()
       })
     })
