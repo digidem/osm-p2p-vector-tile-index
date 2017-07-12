@@ -17,6 +17,7 @@
   "author": "Gregor MacLennan",
   "license": "MIT",
   "devDependencies": {
+    "osm-p2p-mem": "^1.0.0",
     "standard": "^8.0.0",
     "tape": "^4.7.0"
   },
