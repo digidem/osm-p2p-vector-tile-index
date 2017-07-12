@@ -95,7 +95,6 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
           description: '',
           fields: propTypes(layerGeojson)
         })
-        console.dir(layerGeojson, {depth:null})
         self._tileIndexes[key] = geojsonvt(layerGeojson)
       }
       self._lastUpdate = Date.now()
