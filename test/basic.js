@@ -8,7 +8,6 @@ test('single node', function (t) {
 
   var nodeId
 
-  console.log('a 1')
   osm.create({
     type: 'node',
     lon: 1,
@@ -23,7 +22,6 @@ test('single node', function (t) {
   })
 
   function check () {
-  console.log('a 2')
 
     vti.ready(function () {
       vti.getJsonTile(1, 1, 1, function (err, tile) {
