@@ -5,7 +5,6 @@ var geojsonvt = require('geojson-vt')
 var vtpbf = require('vt-pbf')
 var xtend = require('xtend')
 var ff = require('feature-filter-geojson')
-var featureEach = require('@turf/meta').featureEach
 var propReduce = require('@turf/meta').propReduce
 var bbox = require('@turf/bbox')
 var debounce = require('lodash/debounce')
