@@ -1,5 +1,6 @@
 # osm-p2p-vector-tile-index
 
+[![Build Status](https://img.shields.io/travis/digidem/osm-p2p-vector-tile-index.svg)](https://travis-ci.org/digidem/osm-p2p-vector-tile-index)
 [![npm](https://img.shields.io/npm/v/osm-p2p-vector-tile-index.svg)](https://www.npmjs.com/package/osm-p2p-vector-tile-index)
 [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?maxAge=2592000)](http://standardjs.com/)
 
