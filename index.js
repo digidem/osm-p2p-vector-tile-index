@@ -5,7 +5,6 @@ var geojsonvt = require('geojson-vt')
 var vtpbf = require('vt-pbf')
 var xtend = require('xtend')
 var ff = require('feature-filter-geojson')
-var featureEach = require('@turf/meta').featureEach
 var propReduce = require('@turf/meta').propReduce
 var bbox = require('@turf/bbox')
 var debounce = require('lodash/debounce')
@@ -18,7 +17,7 @@ var DEFAULTS = {
   layers: {
     geojsonLayer: ['all']
   },
-  map: null,
+  map: function (f) { return f },
   minZoom: 0,
   maxZoom: 14
 }
@@ -69,37 +68,39 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
     return
   }
   self._updating = true
-  getGeoJSON(self.osm, self.opts, function (err, geojson) {
-    geojson = geojson || {
-      type: 'FeatureCollection',
-      features: []
-    }
-    if (err) return self.emit('error', err)
-
-    if (geojson.features.filter(self.otherFilter).length) {
-      self.layerFilters.other = self.otherFilter
-    } else {
-      delete self.layerFilters.other
-    }
-
-    self._tileIndexes = {}
-    self._meta.bounds = bbox(geojson)
-    self._meta.vector_layers = []
-    for (var key in self.layerFilters) {
-      var layerGeojson = {
+  self.osm.query([[-Infinity, Infinity], [-Infinity, Infinity]], function (err, docs) {
+    getGeoJSON(self.osm, xtend(self.opts, { docs: docs }), function (err, geojson) {
+      geojson = geojson || {
         type: 'FeatureCollection',
-        features: geojson.features.filter(self.layerFilters[key])
+        features: []
       }
-      self._meta.vector_layers.push({
-        id: key,
-        description: '',
-        fields: propTypes(layerGeojson)
-      })
-      self._tileIndexes[key] = geojsonvt(layerGeojson)
-    }
-    self._lastUpdate = Date.now()
-    self._updating = false
-    self.emit('update')
+      if (err) return self.emit('error', err)
+
+      if (geojson.features.filter(self.otherFilter).length) {
+        self.layerFilters.other = self.otherFilter
+      } else {
+        delete self.layerFilters.other
+      }
+
+      self._tileIndexes = {}
+      self._meta.bounds = bbox(geojson)
+      self._meta.vector_layers = []
+      for (var key in self.layerFilters) {
+        var layerGeojson = {
+          type: 'FeatureCollection',
+          features: geojson.features.filter(self.layerFilters[key])
+        }
+        self._meta.vector_layers.push({
+          id: key,
+          description: '',
+          fields: propTypes(layerGeojson)
+        })
+        self._tileIndexes[key] = geojsonvt(layerGeojson)
+      }
+      self._lastUpdate = Date.now()
+      self._updating = false
+      self.emit('update')
+    })
   })
 }
 
@@ -126,12 +127,9 @@ VectorTileIndex.prototype.getPbfTile = function (z, x, y, cb) {
     if (!jsonTile) return cb(null, null)
     var l = {}
     for (var k in jsonTile) {
-      console.log(jsonTile[k].features)
       l[k] = new vtpbf.GeoJSONWrapper(jsonTile[k].features)
       l[k].name = k
-      // l[k].version = 2
     }
-    console.log('l:', l)
     cb(null, vtpbf.fromVectorTileJs({layers: l}))
   })
 }

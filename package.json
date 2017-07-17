@@ -4,7 +4,8 @@
   "description": "Vector tile index for osm-p2p-db",
   "main": "index.js",
   "scripts": {
-    "test": "standard"
+    "test": "tape test/**/*",
+    "lint": "standard"
   },
   "keywords": [
     "osm-p2p",
@@ -16,7 +17,9 @@
   "author": "Gregor MacLennan",
   "license": "MIT",
   "devDependencies": {
-    "standard": "^8.0.0"
+    "osm-p2p-mem": "^1.0.0",
+    "standard": "^8.0.0",
+    "tape": "^4.7.0"
   },
   "dependencies": {
     "@turf/bbox": "^3.5.2",
@@ -24,7 +27,7 @@
     "feature-filter-geojson": "^1.0.0",
     "geojson-vt": "^2.4.0",
     "lodash": "^4.17.4",
-    "osm-p2p-geojson": "^2.0.0",
+    "osm-p2p-geojson": "^3.0.0",
     "tilebelt": "^1.0.1",
     "vt-pbf": "^2.1.2",
     "xtend": "^4.0.1"
