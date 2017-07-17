@@ -2,6 +2,18 @@ var test = require('tape')
 var VectorTileIndex = require('../')
 var osmdb = require('osm-p2p-mem')
 
+test('empty db', function (t) {
+  var osm = osmdb()
+  var vti = VectorTileIndex(osm)
+
+  vti.ready(function () {
+    vti.getJsonTile(1, 1, 1, function (err, tile) {
+      t.error(err)
+      t.end()
+    })
+  })
+})
+
 test('single node', function (t) {
   var osm = osmdb()
   var vti = VectorTileIndex(osm)
