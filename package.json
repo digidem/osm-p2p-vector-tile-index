@@ -1,6 +1,6 @@
 {
   "name": "osm-p2p-vector-tile-index",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "Vector tile index for osm-p2p-db",
   "main": "index.js",
   "scripts": {
