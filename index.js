@@ -51,7 +51,13 @@ function VectorTileIndex (osm, opts) {
 
   self._tileIndexes = {}
 
-  osm.log.on('add', debounce(self.regenerateIndex.bind(self), 500))
+  osm.log.on('add', function () {
+    if (self._updating) {
+      self._pending = true
+    } else {
+      self.regenerateIndex()
+    }
+  })
   self.on('update', function () {
     if (self._pending) {
       self._pending = false
@@ -99,7 +105,12 @@ VectorTileIndex.prototype.regenerateIndex = function regerateIndex () {
       }
       self._lastUpdate = Date.now()
       self._updating = false
-      self.emit('update')
+      if (self._pending) {
+        self._pending = false
+        self.regerateIndex()
+      } else {
+        self.emit('update')
+      }
     })
   })
 }

@@ -30,7 +30,7 @@ test('single node', function (t) {
   }, function (err, id) {
     t.error(err)
     nodeId = id
-    setTimeout(check, 500)
+    check()
   })
 
   function check () {
@@ -64,7 +64,7 @@ test('way with only one point is filtered', function (t) {
     }
   }, function (err, id) {
     t.error(err)
-    setTimeout(check, 500)
+    check()
   })
 
   function check () {
